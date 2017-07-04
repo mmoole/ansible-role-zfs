@@ -1,0 +1,110 @@
+---
+# install CentOS / RedHat ZFS packages
+
+# get centos version: cat /etc/centos-release
+# get redhat version: cat /etc/redhat-release
+
+#- name: install kernel devel for actual kernel version
+#  shell: yum install -y "kernel-devel-uname-r == $(uname -r)"
+#  become: true
+#  become_method: sudo
+
+- name: read actual kernel version via (uname -r)
+  shell: echo $(uname -r)
+  register: kernel_version
+  changed_when: false
+
+- name: "yum install packages as prerequisites for {{ kernel_version.stdout }}"
+  yum: name={{ item }} state=present update_cache=yes
+  with_items:
+   - epel-release
+   - gdisk
+   - kernel-devel
+   - "kernel-devel-{{ kernel_version.stdout }}"
+
+- name: add zfs rpm package für <7.3 systems
+  yum:
+    name: http://download.zfsonlinux.org/epel/zfs-release.el7.noarch.rpm
+    state: present
+  when:  ansible_distribution_version | version_compare('7.3', '<')
+
+- block:
+  - name: add zfs rpm package für >=7.3 systems
+    yum:
+      name: http://download.zfsonlinux.org/epel/zfs-release.el7_3.noarch.rpm
+      state: present
+  - name: remove zfs rpm package for <7.3 systems
+    yum:
+      name: http://download.zfsonlinux.org/epel/zfs-release.el7.noarch.rpm
+      state: absent
+  when: ansible_distribution_version | version_compare('7.3', '>=')
+
+# Example action to import a key from a file
+- name: import gpg key from zfsonlinux
+  rpm_key:
+    state: present
+    key: /etc/pki/rpm-gpg/RPM-GPG-KEY-zfsonlinux
+
+- name: yum install zfs package
+  yum: name={{ item }} state=present
+  with_items:
+    - spl
+    - zfs
+  register: zfs_package_install
+
+- name: add persistence - load kernel module on every boot
+  template:
+    src: zfsmod.conf
+    dest: /etc/modules-load.d/zfs.conf
+    # mode: 0774
+
+- name: add zfs kernel module
+  modprobe:
+    name: zfs
+    state: present
+  register: zfs_modprob_result
+  ignore_errors: true
+
+- debug:
+    msg: "{{ zfs_modprob_result }}"
+
+- name: copy script which can be used to manually fix zfs after kernel upgrade
+  template:
+    src: zfs-fix-dkms.sh
+    dest: /etc/zfs/zfs-fix-dkms.sh
+    mode: 0774
+
+- name: info run script to fix zfs dkms after kernel upgrade
+  debug:
+    msg: you need to run /etc/zfs/zfs-fix-dkms.sh script to fix zfs dkms
+  when: zfs_modprob_result.failed or zfs_package_install.changed
+  changed_when: true
+
+- name: enable systemd services for zfs
+  systemd: name={{ item }} enabled=yes state=started
+  with_items:
+    - zfs-import-cache
+    - zfs-import-scan
+    - zfs-mount
+    - zfs-share
+    - zfs-zed
+    #- zfs.target
+
+- name: workaround for systemd multi-user target symlink
+  file:
+    src: /usr/lib/systemd/system/zfs.target
+    dest: /etc/systemd/system/multi-user.target.wants/zfs.target
+    #owner: foo
+    #group: foo
+    state: link
+    mode: 0644
+
+# zfsonlinux uses this exportsfile: /etc/dfs/sharetab  // nfs uses /etc/exports
+- stat: path=/etc/dfs/sharetab
+  register: exportsfile
+
+- name: make certain etc_exports file exists for nfs exports
+  file:
+    path: /etc/dfs/sharetab
+    mode: 0644
+    state: "{{ 'file' if  exportsfile.stat.exists else 'touch'}}"

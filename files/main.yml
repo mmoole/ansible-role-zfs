@@ -1,0 +1,1 @@
+# This directory holds files that do not require Jinja interpolation, and can be copied as-is on the remote nodes

@@ -1,0 +1,2 @@
+# Contains dependencies: what roles this role depends on.
+# This is of utmost importance, and setting it right deserves a blog post on it’s own. Until then, the rule of thumb to remember is to only include compulsory role dependencies for the target host.
