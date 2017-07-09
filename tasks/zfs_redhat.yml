@@ -98,13 +98,3 @@
     #group: foo
     state: link
     mode: 0644
-
-# zfsonlinux uses this exportsfile: /etc/dfs/sharetab  // nfs uses /etc/exports
-- stat: path=/etc/dfs/sharetab
-  register: exportsfile
-
-- name: make certain etc_exports file exists for nfs exports
-  file:
-    path: /etc/dfs/sharetab
-    mode: 0644
-    state: "{{ 'file' if  exportsfile.stat.exists else 'touch'}}"
