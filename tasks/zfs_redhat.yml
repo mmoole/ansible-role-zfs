@@ -4,40 +4,39 @@
 # get centos version: cat /etc/centos-release
 # get redhat version: cat /etc/redhat-release
 
-#- name: install kernel devel for actual kernel version
-#  shell: yum install -y "kernel-devel-uname-r == $(uname -r)"
-#  become: true
-#  become_method: sudo
-
 - name: read actual kernel version via (uname -r)
   shell: echo $(uname -r)
   register: kernel_version
   changed_when: false
 
-- name: "yum install packages as prerequisites for {{ kernel_version.stdout }}"
-  yum: name={{ item }} state=present update_cache=yes
-  with_items:
-   - epel-release
-   - gdisk
-   - kernel-devel
-   - "kernel-devel-{{ kernel_version.stdout }}"
+- name: "yum install packages as prerequisites for kernel version {{ kernel_version.stdout }}"
+  yum:
+    state: present
+    update_cache: yes
+    name:
+    - epel-release
+    - gdisk
+    - kernel-devel
+    - "kernel-devel-{{ kernel_version.stdout }}"
 
-- name: add zfs rpm package für <7.3 systems
+- name: add zfs rpm package for <7.3 systems
   yum:
     name: http://download.zfsonlinux.org/epel/zfs-release.el7.noarch.rpm
     state: present
-  when:  ansible_distribution_version | version_compare('7.3', '<')
+  when:  ansible_distribution_version is version_compare('7.3', '<')
 
+# for systems >= 7.3:
 - block:
-  - name: add zfs rpm package für >=7.3 systems
-    yum:
-      name: http://download.zfsonlinux.org/epel/zfs-release.el7_3.noarch.rpm
-      state: present
   - name: remove zfs rpm package for <7.3 systems
     yum:
       name: http://download.zfsonlinux.org/epel/zfs-release.el7.noarch.rpm
       state: absent
-  when: ansible_distribution_version | version_compare('7.3', '>=')
+
+  - name: add zfs rpm package for >=7.3 systems
+    yum:
+      name: http://download.zfsonlinux.org/epel/zfs-release.el{{ ansible_distribution_version |replace(".","_") }}.noarch.rpm
+      state: present
+  when: ansible_distribution_version is version_compare('7.3', '>=')
 
 # Example action to import a key from a file
 - name: import gpg key from zfsonlinux
@@ -46,8 +45,9 @@
     key: /etc/pki/rpm-gpg/RPM-GPG-KEY-zfsonlinux
 
 - name: yum install zfs package
-  yum: name={{ item }} state=present
-  with_items:
+  yum:
+    state: present
+    name:
     - spl
     - zfs
   register: zfs_package_install
