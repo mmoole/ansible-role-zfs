@@ -1,7 +1,7 @@
 About
 -----
 
-Ansible role for installing zfs package on linux - currently centos/RedHat only
+Ansible role for installing zfs package on linux - currently centos/RedHat only, using DKMS style.
 
 Requirements
 ------------

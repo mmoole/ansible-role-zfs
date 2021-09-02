@@ -6,7 +6,9 @@
 #  when: ansible_os_family == "Windows"
 
 - include_tasks: zfs_redhat.yml
-  when: ansible_os_family == "RedHat" and ansible_distribution_major_version > 7
+  when: >
+    (ansible_os_family == "RedHat" or ansible_os_family == "AlmaLinux") and
+    (ansible_distribution_major_version|int > 7)
 
 #- include_tasks: zfs_debian_9.yml
 #  when: ansible_distribution == "Debian" and ansible_distribution_major_version > 8

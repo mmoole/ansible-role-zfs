@@ -31,6 +31,7 @@
     yum:
       name: http://download.zfsonlinux.org/epel/zfs-release.el7.noarch.rpm
       state: absent
+    when: ansible_distribution_version is version_compare('7.3', '<')
 
   - name: add zfs rpm package for >=7.3 systems
     yum:
@@ -48,7 +49,7 @@
   yum:
     state: present
     name:
-    - spl
+    #- spl
     - zfs
   register: zfs_package_install
 
