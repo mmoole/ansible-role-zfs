@@ -4,7 +4,7 @@
 # get centos version: cat /etc/centos-release
 # get redhat version: cat /etc/redhat-release
 
-- name: read actual kernel version via (uname -r)
+- name: "read actual kernel version via (uname -r), system version {{ ansible_distribution_version }} "
   shell: echo $(uname -r)
   register: kernel_version
   changed_when: false
