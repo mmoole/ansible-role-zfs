@@ -35,9 +35,9 @@
         state: absent
       when: ansible_distribution_version is version_compare('7.3', '>')
 
-    - name: copy ZFS repo GPG key 1 (RedHat)
+    - name: Copy ZFS repo GPG key 1 (RedHat)
       ansible.builtin.copy:
-        src: RPM-GPG-KEY-openzfs-key1
+        src: templates/RPM-GPG-KEY-openzfs-key1
         dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-zfsonlinux
         owner: root
         group: root
@@ -59,7 +59,7 @@
   block:
     - name: Copy ZFS repo GPG key 2 (RedHat)
       ansible.builtin.copy:
-        src: RPM-GPG-KEY-openzfs-key2
+        src: templates/RPM-GPG-KEY-openzfs-key2
         dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-openzfs-key2
         owner: root
         group: root
