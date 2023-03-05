@@ -1,0 +1,84 @@
+---
+- name: Block to set scrub service if enabled
+  when: zfs_scrub_enable is true
+  block:
+    - name: Create scrub service
+      ansible.builtin.template:
+        src: zpool-scrub.service.j2
+        dest: /etc/systemd/system/zpool-scrub.service
+        owner: root
+        group: root
+        mode: 0644
+      notify: reload systemd
+
+    - name: Create scrub timer
+      ansible.builtin.template:
+        src: zpool-scrub.timer.j2
+        dest: /etc/systemd/system/zpool-scrub.timer
+        owner: root
+        group: root
+        mode: 0644
+      notify: reload systemd
+
+    - name: Flush handlers
+      ansible.builtin.meta: flush_handlers
+
+    - name: Enable scrub timer
+      ansible.builtin.systemd:
+        name: "zpool-scrub.timer"
+        enabled: true
+        state: started
+
+- name: Block to unset scrub service if disabled
+  when: zfs_scrub_enable is false
+  block:
+    - name: Disable scrub timer
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - /etc/systemd/system/zpool-scrub.service
+        - /etc/systemd/system/zpool-scrub.timer
+      notify: reload systemd
+
+- name: Block to set trim service if enabled
+  when: zfs_trim_enable is true
+  block:
+    - name: Create trim service
+      ansible.builtin.template:
+        src: zpool-trim.service.j2
+        dest: /etc/systemd/system/zpool-trim.service
+        owner: root
+        group: root
+        mode: 0644
+      notify: reload systemd
+
+    - name: Create trim timer
+      ansible.builtin.template:
+        src: zpool-trim.timer.j2
+        dest: /etc/systemd/system/zpool-trim.timer
+        owner: root
+        group: root
+        mode: 0644
+      notify: reload systemd
+
+    - name: Flush handlers
+      ansible.builtin.meta: flush_handlers
+
+    - name: Enable trim timer
+      ansible.builtin.systemd:
+        name: "zpool-trim.timer"
+        enabled: true
+        state: started
+
+- name: Block to unset trim service if disabled
+  when: zfs_trim_enable is false
+  block:
+    - name: Disable trim timer
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - /etc/systemd/system/zpool-trim.service
+        - /etc/systemd/system/zpool-trim.timer
+      notify: reload systemd

@@ -4,98 +4,199 @@
 # get centos version: cat /etc/centos-release
 # get redhat version: cat /etc/redhat-release
 
-- name: "read actual kernel version via (uname -r), system version {{ ansible_distribution_version }} "
-  shell: echo $(uname -r)
+- name: "Read actual kernel version via (uname -r), system version {{ ansible_distribution_version }} "
+  ansible.builtin.shell: echo $(uname -r)
   register: kernel_version
   changed_when: false
 
-- name: "yum install packages as prerequisites for kernel version {{ kernel_version.stdout }}"
-  yum:
+- name: "Install packages as prerequisites for kernel version {{ kernel_version.stdout }}"
+  ansible.builtin.dnf:
     state: present
     update_cache: yes
     name:
-    - epel-release
-    - gdisk
-    - kernel-devel
-    - "kernel-devel-{{ kernel_version.stdout }}"
+      - epel-release
+      - gdisk
+      - kernel-devel
+      - "kernel-devel-{{ kernel_version.stdout }}"
 
-- name: add zfs rpm package for <7.3 systems
-  yum:
-    name: http://download.zfsonlinux.org/epel/zfs-release.el7.noarch.rpm
+- name: Add zfs rpm package for ... < 7.3 systems
+  ansible.builtin.yum:
+    name: https://download.zfsonlinux.org/epel/zfs-release.el7.noarch.rpm
     state: present
-  when:  ansible_distribution_version is version_compare('7.3', '<')
+  when: ansible_distribution_version is version_compare('7.3', '<')
 
-# for systems >= 7.3:
-- block:
-  - name: remove zfs rpm package for <7.3 systems
-    yum:
-      name: http://download.zfsonlinux.org/epel/zfs-release.el7.noarch.rpm
-      state: absent
-    when: ansible_distribution_version is version_compare('7.3', '<')
 
-  - name: add zfs rpm package for >=7.3 systems
-    yum:
-      name: http://download.zfsonlinux.org/epel/zfs-release.el{{ ansible_distribution_version |replace(".","_") }}.noarch.rpm
-      state: present
-  when: ansible_distribution_version is version_compare('7.3', '>=')
+- name: Block for systems 7.3 <= ... < 8
+  when: ansible_distribution_version is version_compare('7.3', '>=') and ansible_distribution_version is version_compare('8', '<')
+  block:
+    - name: Remove zfs rpm package for <7.3 systems
+      ansible.builtin.yum:
+        name: https://download.zfsonlinux.org/epel/zfs-release.el7.noarch.rpm
+        state: absent
+      when: ansible_distribution_version is version_compare('7.3', '>')
 
-# Example action to import a key from a file
-- name: import gpg key from zfsonlinux
-  rpm_key:
-    state: present
-    key: /etc/pki/rpm-gpg/RPM-GPG-KEY-zfsonlinux
+    - name: copy ZFS repo GPG key 1 (RedHat)
+      ansible.builtin.copy:
+        src: RPM-GPG-KEY-openzfs-key1
+        dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-zfsonlinux
+        owner: root
+        group: root
+        mode: 0644
 
-- name: yum install zfs package
-  yum:
-    state: present
+    - name: Import gpg key from zfsonlinux
+      ansible.builtin.rpm_key:
+        state: present
+        key: /etc/pki/rpm-gpg/RPM-GPG-KEY-zfsonlinux
+
+    - name: Add zfs rpm package for >=7.3 systems
+      ansible.builtin.yum:
+        name: https://download.zfsonlinux.org/epel/zfs-release.el{{ ansible_distribution_version | replace(".", "_") }}.noarch.rpm
+        state: present
+
+
+- name: Block for 8...9 systems
+  when: ansible_distribution_major_version is version_compare('8', '>=') and ansible_distribution_major_version is version_compare('9', '<=')
+  block:
+    - name: Copy ZFS repo GPG key 2 (RedHat)
+      ansible.builtin.copy:
+        src: RPM-GPG-KEY-openzfs-key2
+        dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-openzfs-key2
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: Install pubZFS repo GPG key 2 for newer systems
+      ansible.builtin.rpm_key:
+        key: /etc/pki/rpm-gpg/RPM-GPG-KEY-openzfs-key2
+        state: present
+        fingerprint: 7DC7 299D CF7C 7FD9 CD87 701B A599 FD5E 9DB8 4141
+
+    - name: Add zfs rpm package for 8 ... 9 systems
+      ansible.builtin.dnf:
+        name: https://zfsonlinux.org/epel/zfs-release-2-2.el{{ ansible_distribution_major_version | replace(".", "_") }}.noarch.rpm
+        state: present
+
+
+- name: Yum install zfs package
+  ansible.builtin.dnf:
     name:
-    #- spl
-    - zfs
+      # - spl
+      - zfs
+    state: present
   register: zfs_package_install
 
-- name: add persistence - load kernel module on every boot
-  template:
+- name: Add persistence - load kernel module on every boot
+  ansible.builtin.template:
     src: zfsmod.conf
     dest: /etc/modules-load.d/zfs.conf
-    # mode: 0774
+    owner: root
+    group: root
+    mode: 0644
 
-- name: add zfs kernel module
-  modprobe:
+- name: Add zfs kernel module
+  ansible.builtin.modprobe:
     name: zfs
     state: present
   register: zfs_modprob_result
   ignore_errors: true
 
-- debug:
+- name: Debug display zfs kernel module result
+  ansible.builtin.debug:
     msg: "{{ zfs_modprob_result }}"
 
-- name: copy script which can be used to manually fix zfs after kernel upgrade
-  template:
+- name: Copy script which can be used to manually fix zfs after kernel upgrade
+  ansible.builtin.template:
     src: zfs-fix-dkms.sh
     dest: /etc/zfs/zfs-fix-dkms.sh
     mode: 0774
 
-- name: info run script to fix zfs dkms after kernel upgrade
-  debug:
-    msg: you need to run /etc/zfs/zfs-fix-dkms.sh script to fix zfs dkms
+- name: Info run script to fix zfs dkms after kernel upgrade
+  ansible.builtin.debug:
+    msg: you may need to run /etc/zfs/zfs-fix-dkms.sh script to fix zfs dkms
   when: zfs_modprob_result.failed or zfs_package_install.changed
   changed_when: true
 
-- name: enable systemd services for zfs
-  systemd: name={{ item }} enabled=yes state=started
+- name: Enable systemd services for zfs
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: yes
+    state: started
   with_items:
     - zfs-import-cache
     - zfs-import-scan
     - zfs-mount
     - zfs-share
     - zfs-zed
-    #- zfs.target
+    # - zfs.target
 
-- name: workaround for systemd multi-user target symlink
-  file:
+- name: Workaround for systemd multi-user target symlink
+  ansible.builtin.file:
     src: /usr/lib/systemd/system/zfs.target
     dest: /etc/systemd/system/multi-user.target.wants/zfs.target
-    #owner: foo
-    #group: foo
+    owner: root
+    group: root
     state: link
     mode: 0644
+
+- name: Display configuration parameters, note the restrictions on effectiveness depending on each parameter.
+  ansible.builtin.debug:
+    var: zfs_sysparameters_list
+  when: zfs_sysparameters_list
+  tags:
+    - configure
+
+- name: Set zfs system configuration parameters (only works for those of change type 'dynamic')
+  ansible.builtin.copy:
+    dest: "/sys/module/zfs/parameters/{{ item.name }}"
+    content: "{{ item.value }}\n"
+    owner: root
+    group: root
+    mode: 0644
+    force: true
+    unsafe_writes: yes
+  with_items:
+    - "{{ zfs_sysparameters_list }}"
+  when: zfs_sysparameters_list
+  become: true
+  tags:
+    - configure
+
+- name: Write zfs kernel parameters into file /etc/modprobe.d/zfs.conf
+  ansible.builtin.lineinfile:
+    path: /etc/modprobe.d/zfs.conf
+    line: "options zfs {{ item.name }}={{ item.value }}"
+    search_string: "{{ item.name }}"
+    create: yes
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - "{{ zfs_sysparameters_list }}"
+  when: zfs_sysparameters_list
+  become: true
+  tags:
+    - configure
+
+- name: Display configuration parameters to remove from /etc/modprobe.d/zfs.conf
+  ansible.builtin.debug:
+    var: zfs_sysparameters_list_remove
+  when: zfs_sysparameters_list_remove
+  tags:
+    - configure
+
+- name: Remove zfs kernel parameters from file /etc/modprobe.d/zfs.conf
+  ansible.builtin.lineinfile:
+    path: /etc/modprobe.d/zfs.conf
+    search_string: "{{ item }}"
+    state: absent
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - "{{ zfs_sysparameters_list_remove }}"
+  when: zfs_sysparameters_list_remove
+  become: true
+  notify:
+    - Notify user that reboot may be needed to apply changes
+  tags:
+    - configure

@@ -1,0 +1,26 @@
+---
+# defaults for zfs role
+
+# set zfs system parameters:
+# they may be written to /etc/modprobe.d/zfs.conf
+# https://openzfs.github.io/openzfs-docs/Performance%20and%20Tuning/Module%20Parameters.html
+zfs_sysparameters_list:
+  # - name: zfs_arc_max
+  #   value: "{{ (ansible_memtotal_mb * 1024**2 * 0.25) | int }}"
+
+# remove parameters from file /etc/modprobe.d/zfs.conf
+zfs_sysparameters_list_remove:
+  # - zfs_vdev_raidz_impl
+  # - metaslab_lba_weighting_enabled
+
+# set to enable / disable timer to scrub all pools
+zfs_scrub_enable: yes
+# time schedule for zpool scrubs; for valid time formats see:
+# https://www.freedesktop.org/software/systemd/man/systemd.time.html#Calendar%20Events
+zfs_scrub_schedule: monthly
+
+# set to enable / disable timer to trim all pools
+zfs_trim_enable: yes
+# time schedule for trimming zpools; for valid time formats see:
+# https://www.freedesktop.org/software/systemd/man/systemd.time.html#Calendar%20Events
+zfs_trim_schedule: weekly

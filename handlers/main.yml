@@ -1,0 +1,11 @@
+---
+- name: Notify user that reboot may be needed to apply changes
+  ansible.builtin.debug:
+    msg: >
+      Kernel module parameters for zfs have been modified.
+      A reboot is required in order to apply the changes.
+      Be aware that some parameters only apply under specific circumstances.
+
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true

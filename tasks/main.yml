@@ -1,14 +1,18 @@
-# set up zfs packackes on system
+---
+# set up zfs packages on system
 
 # TODO: include version specific tasks per filename and with_first_found
 
 #- include_tasks: zfs_windows.yml
 #  when: ansible_os_family == "Windows"
 
-- include_tasks: zfs_redhat.yml
+- name: Include tasks for RedHat-like systems
+  ansible.builtin.include_tasks: zfs_redhat.yml
   when: >
     (ansible_os_family == "RedHat" or ansible_os_family == "AlmaLinux") and
-    (ansible_distribution_major_version|int > 7)
+    (ansible_distribution_major_version|int >= 7)
+  tags:
+    - configure
 
 #- include_tasks: zfs_debian_9.yml
 #  when: ansible_distribution == "Debian" and ansible_distribution_major_version > 8
@@ -18,4 +22,9 @@
 
 # then continue to manage zfs things
 
-# - include_tasks: zfs_manage.yml
+- name: Include tasks for services
+  tags: [configure, services]
+  ansible.builtin.include_tasks:
+    file: services.yml
+    apply:
+      tags: [configure, services]

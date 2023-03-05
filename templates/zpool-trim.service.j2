@@ -1,0 +1,14 @@
+{{ ansible_managed | comment }}
+
+[Unit]
+Description=Trim ZFS Pools
+Requires=zfs.target
+After=zfs.target
+
+[Service]
+Type=oneshot
+ExecStartPre=-/bin/bash -c "pools=$$(/sbin/zpool list -H -o name | tr $! '\n' ' '); exec /sbin/zpool trim -c $${pools}"
+ExecStart=/bin/bash -c "pools=$$(/sbin/zpool list -H -o name | tr $! '\n' ' '); exec /sbin/zpool trim $${pools}"
+Nice=19
+IOSchedulingClass=idle
+KillSignal=SIGINT
