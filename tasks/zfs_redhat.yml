@@ -145,21 +145,27 @@
   tags:
     - configure
 
-- name: Set zfs system configuration parameters (only works for those of change type 'dynamic')
-  ansible.builtin.copy:
-    dest: "/sys/module/zfs/parameters/{{ item.name }}"
-    content: "{{ item.value }}\n"
-    owner: root
-    group: root
-    mode: 0644
-    force: true
-    unsafe_writes: yes
-  with_items:
-    - "{{ zfs_sysparameters_list }}"
-  when: zfs_sysparameters_list
-  become: true
-  tags:
-    - configure
+- name: Set zfs kernel module parameters
+  block:
+    - name: Set zfs system configuration parameters (only works for those of change type 'dynamic')
+      ansible.builtin.copy:
+        dest: "/sys/module/zfs/parameters/{{ item.name }}"
+        content: "{{ item.value }}\n"
+        owner: root
+        group: root
+        mode: 0644
+        force: true
+        unsafe_writes: yes
+      with_items:
+        - "{{ zfs_sysparameters_list }}"
+      when: zfs_sysparameters_list
+      become: true
+      tags:
+        - configure
+  rescue:
+    - name: Print message if errors happened
+      ansible.builtin.debug:
+        msg: 'If a parameter was not set this either is due to its property being not "dynamic" or another error happened.'
 
 - name: Write zfs kernel parameters into file /etc/modprobe.d/zfs.conf
   ansible.builtin.lineinfile:
