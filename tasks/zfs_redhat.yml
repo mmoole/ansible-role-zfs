@@ -73,7 +73,7 @@
 
     - name: Add zfs rpm package for 8 ... 9 systems
       ansible.builtin.dnf:
-        name: https://zfsonlinux.org/epel/zfs-release-2-2.el{{ ansible_distribution_major_version | replace(".", "_") }}.noarch.rpm
+        name: https://zfsonlinux.org/epel/zfs-release-2-3.el{{ ansible_distribution_major_version | replace(".", "_") }}.noarch.rpm
         state: present
 
 
